@@ -1,0 +1,27 @@
+# systemd unit for running polybot without Docker.
+# Install: see README "Option B: systemd".
+[Unit]
+Description=Polybot BTC Binance/Polymarket paper-trading bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=polybot
+Group=polybot
+WorkingDirectory=/opt/polybot
+EnvironmentFile=/opt/polybot/.env
+ExecStart=/opt/polybot/.venv/bin/python -m polybot --config /opt/polybot/config.yaml --env-file /opt/polybot/.env
+Restart=always
+RestartSec=5
+# Give the bot time to shut down cleanly on SIGTERM.
+TimeoutStopSec=20
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/polybot/data
+
+[Install]
+WantedBy=multi-user.target

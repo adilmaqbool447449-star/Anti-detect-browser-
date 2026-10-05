@@ -1,0 +1,18 @@
+services:
+  polybot:
+    build: .
+    image: polybot:latest
+    container_name: polybot
+    restart: unless-stopped          # restarts on crash and after reboot
+    env_file: .env                   # secrets only live here
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./data:/app/data             # SQLite DB + kill switch file
+    ports:
+      # Bound to localhost only. Reach it via SSH tunnel, Tailscale, or the
+      # HTTPS reverse proxy described in the README. Do not change to 0.0.0.0
+      # without TLS in front: Basic auth over plain HTTP leaks the password.
+      - "127.0.0.1:8080:8080"
+    logging:
+      driver: json-file
+      options: {max-size: "20m", max-file: "5"}

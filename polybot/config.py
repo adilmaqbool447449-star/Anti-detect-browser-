@@ -168,6 +168,10 @@ def load_config(path: str | os.PathLike = "config.yaml", env_file: str | None = 
             polymarket_private_key=os.environ.get("POLYMARKET_PRIVATE_KEY") or None,
         ),
     )
+    # Container deployments bind inside the container; the host port mapping
+    # decides real exposure (see docker-compose.yml).
+    if host := os.environ.get("POLYBOT_DASHBOARD_HOST"):
+        cfg.dashboard.host = host
     if cfg.execution.mode not in ("paper", "live"):
         raise ValueError("execution.mode must be 'paper' or 'live'")
     return cfg
