@@ -185,6 +185,9 @@ class Bot:
             await self.http.aclose()
             self.storage.log_event("INFO", "stop", "shutdown")
 
+    async def stopped(self) -> None:
+        await self._stop.wait()
+
     def stop(self) -> None:
         self._stop.set()
         self.binance.stop()
@@ -209,6 +212,7 @@ class Bot:
         return {
             "now": now,
             "mode": self.mode,
+            "min_edge": self.cfg.signals.min_edge,
             "btc": {"price": self.binance.price, "bid": self.binance.bid, "ask": self.binance.ask,
                     "age_s": self.binance.age(now), "sigma": self.binance.sigma, "connected": self.binance.connected,
                     "reconnects": self.binance.reconnects},

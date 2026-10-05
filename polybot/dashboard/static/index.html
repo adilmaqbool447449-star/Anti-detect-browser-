@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Polybot Monitor</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f3f3f1; --surface-1: #fcfcfb; --border: #e2e1dc;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #8a8984;
+  --series-1: #2a78d6; --grid: #ecebe7;
+  --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-0: #111110; --surface-1: #1a1a19; --border: #2e2e2c;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+    --series-1: #3987e5; --grid: #262624;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #111110; --surface-1: #1a1a19; --border: #2e2e2c;
+  --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+  --series-1: #3987e5; --grid: #262624;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface-0); color: var(--text-primary);
+  font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  padding: 16px max(16px, env(safe-area-inset-right)) 32px max(16px, env(safe-area-inset-left)); }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-bottom: 16px; }
+h1 { font-size: 17px; margin: 0; font-weight: 600; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); margin: 0 0 10px; font-weight: 600; }
+.btc { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-muted); }
+.sec { color: var(--text-secondary); }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface-1); font-size: 12px; font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.spacer { flex: 1; }
+button.kill { background: var(--critical); color: #fff; border: 0; border-radius: 8px; padding: 10px 16px;
+  font-weight: 650; font-size: 14px; min-height: 44px; cursor: pointer; }
+button.kill:disabled { opacity: .5; }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 12px; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px; min-width: 0; }
+.tile .label { font-size: 12px; color: var(--text-secondary); }
+.tile .value { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.section { margin-bottom: 12px; }
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: 13px; }
+th, td { padding: 7px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--grid); }
+th { color: var(--text-secondary); font-weight: 600; font-size: 12px; }
+th:first-child, td:first-child { text-align: left; }
+th.q, td.q { text-align: left; }
+td.q { white-space: normal; min-width: 200px; max-width: 360px; }
+tr.hl td { background: color-mix(in srgb, var(--series-1) 10%, transparent); }
+.edge-pos::before { content: "▲ "; font-size: 10px; }
+.empty { color: var(--text-muted); padding: 10px 0; }
+#chart { width: 100%; height: 160px; position: relative; }
+#chart svg { width: 100%; height: 100%; display: block; overflow: visible; }
+#tip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 8px; font-size: 12px; display: none; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.err { color: var(--critical); font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Polybot</h1>
+  <span id="mode" class="pill">…</span>
+  <span id="status" class="pill"><span class="dot"></span><span>connecting</span></span>
+  <div class="spacer"></div>
+  <button id="kill" class="kill" title="Stop all new trading immediately">Kill switch</button>
+</header>
+
+<div class="grid">
+  <div class="card tile"><div class="label">BTC/USDT (Binance)</div><div class="value btc" id="btc">—</div><div class="muted" id="btcmeta">—</div></div>
+  <div class="card tile"><div class="label">Equity</div><div class="value" id="equity">—</div><div class="muted" id="balmeta">—</div></div>
+  <div class="card tile"><div class="label">Realized P&amp;L</div><div class="value" id="realized">—</div><div class="muted" id="unreal">—</div></div>
+  <div class="card tile"><div class="label">Today (UTC)</div><div class="value" id="daily">—</div><div class="muted" id="dailymeta">—</div></div>
+  <div class="card tile"><div class="label">Exposure</div><div class="value" id="exposure">—</div><div class="muted" id="expmeta">—</div></div>
+</div>
+
+<div class="card section">
+  <h2>Equity</h2>
+  <div id="chart"><div id="tip"></div></div>
+</div>
+
+<div class="card section">
+  <h2>Markets <span class="muted" id="mktmeta"></span></h2>
+  <div class="scroll"><table id="markets"></table></div>
+</div>
+
+<div class="card section">
+  <h2>Open positions</h2>
+  <div class="scroll"><table id="positions"></table></div>
+</div>
+
+<div class="card section">
+  <h2>Recent signals</h2>
+  <div class="scroll"><table id="signals"></table></div>
+</div>
+
+<div class="card section">
+  <h2>Settled positions</h2>
+  <div class="scroll"><table id="closed"></table></div>
+</div>
+
+<div class="card section">
+  <h2>Events</h2>
+  <div class="scroll"><table id="events"></table></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const usd = (v, sign=false) => v == null ? "—" : (sign && v > 0 ? "+" : v < 0 ? "−" : "") + "$" + Math.abs(v).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const num = (v, d=3) => v == null ? "—" : Number(v).toFixed(d);
+const cents = (v) => v == null ? "—" : (v * 100).toFixed(1) + "¢";
+const edge = (v) => v == null ? "—" : `<span class="${v > 0 ? "edge-pos" : ""}">${(v*100 >= 0 ? "+" : "−") + Math.abs(v*100).toFixed(1)}¢</span>`;
+const dur = (s) => { if (s == null) return "—"; if (s < 0) return "expired"; const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = Math.floor(s%60); return h ? `${h}h ${m}m` : m ? `${m}m ${x}s` : `${x}s`; };
+const time = (ts) => ts ? new Date(ts * 1000).toLocaleTimeString() : "—";
+const strike = (r) => r.strike == null ? "—" : r.strike_high ? `${Math.round(r.strike).toLocaleString()}–${Math.round(r.strike_high).toLocaleString()}` : Math.round(r.strike).toLocaleString();
+
+function table(el, cols, rows, empty, rowClass) {
+  if (!rows.length) { el.innerHTML = `<tr><td class="empty">${empty}</td></tr>`; return; }
+  el.innerHTML = "<thead><tr>" + cols.map(c => `<th class="${c[2] || ""}">${c[0]}</th>`).join("") + "</tr></thead><tbody>" +
+    rows.map(r => `<tr class="${rowClass ? rowClass(r) : ""}">` + cols.map(c => `<td class="${c[2] || ""}">${c[1](r)}</td>`).join("") + "</tr>").join("") + "</tbody>";
+}
+
+function status(s) {
+  const r = s.risk;
+  let color = "var(--good)", text = "trading";
+  if (r.kill_switch) { color = "var(--critical)"; text = "KILL SWITCH"; }
+  else if (r.halt_reason) { color = "var(--warning)"; text = "halted: " + r.halt_reason; }
+  $("status").innerHTML = `<span class="dot" style="background:${color}"></span><span>${esc(text)}</span>`;
+  $("kill").disabled = r.kill_switch;
+}
+
+function chart(points) {
+  const box = $("chart"), tip = $("tip");
+  box.querySelector("svg")?.remove();
+  if (points.length < 2) { box.insertAdjacentHTML("afterbegin", `<svg><text x="0" y="20" fill="var(--text-muted)" font-size="12">Equity snapshots appear every minute.</text></svg>`); return; }
+  const W = box.clientWidth, H = box.clientHeight, padL = 64, padR = 8, padT = 8, padB = 22;
+  const xs = points.map(p => p.ts), ys = points.map(p => p.equity);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  let y0 = Math.min(...ys), y1 = Math.max(...ys); if (y1 - y0 < 1) { y0 -= 1; y1 += 1; }
+  const X = t => padL + (t - x0) / (x1 - x0 || 1) * (W - padL - padR);
+  const Y = v => padT + (1 - (v - y0) / (y1 - y0)) * (H - padT - padB);
+  const ticks = [y0, (y0 + y1) / 2, y1];
+  const path = points.map((p, i) => (i ? "L" : "M") + X(p.ts).toFixed(1) + "," + Y(p.equity).toFixed(1)).join("");
+  box.insertAdjacentHTML("afterbegin", `<svg role="img" aria-label="Equity over time">
+    ${ticks.map(t => `<line x1="${padL}" x2="${W - padR}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--grid)"/>
+      <text x="${padL - 6}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="var(--text-muted)">${usd(t)}</text>`).join("")}
+    <text x="${padL}" y="${H - 4}" font-size="11" fill="var(--text-muted)">${time(x0)}</text>
+    <text x="${W - padR}" y="${H - 4}" font-size="11" text-anchor="end" fill="var(--text-muted)">${time(x1)}</text>
+    <path d="${path}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <line id="xh" y1="${padT}" y2="${H - padB}" stroke="var(--text-muted)" stroke-dasharray="3 3" visibility="hidden"/>
+    <circle id="xd" r="4" fill="var(--series-1)" stroke="var(--surface-1)" stroke-width="2" visibility="hidden"/>
+    <rect x="${padL}" y="0" width="${W - padL - padR}" height="${H}" fill="transparent" id="hit"/></svg>`);
+  const svg = box.querySelector("svg"), xh = svg.querySelector("#xh"), xd = svg.querySelector("#xd");
+  const move = (ev) => {
+    const rect = svg.getBoundingClientRect(), cx = (ev.touches ? ev.touches[0].clientX : ev.clientX) - rect.left;
+    let best = points[0]; for (const p of points) if (Math.abs(X(p.ts) - cx) < Math.abs(X(best.ts) - cx)) best = p;
+    const px = X(best.ts), py = Y(best.equity);
+    xh.setAttribute("x1", px); xh.setAttribute("x2", px); xh.setAttribute("visibility", "visible");
+    xd.setAttribute("cx", px); xd.setAttribute("cy", py); xd.setAttribute("visibility", "visible");
+    tip.style.display = "block"; tip.innerHTML = `<div class="sec">${time(best.ts)}</div><b>${usd(best.equity)}</b>`;
+    tip.style.left = Math.min(px + 10, W - tip.offsetWidth) + "px"; tip.style.top = Math.max(0, py - 44) + "px";
+  };
+  const leave = () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); xd.setAttribute("visibility", "hidden"); };
+  const hit = svg.querySelector("#hit");
+  hit.addEventListener("mousemove", move); hit.addEventListener("touchmove", move, {passive: true});
+  hit.addEventListener("mouseleave", leave); hit.addEventListener("touchend", leave);
+}
+
+function render(s) {
+  $("mode").textContent = s.mode.toUpperCase() + " MODE";
+  status(s);
+  const b = s.btc;
+  $("btc").textContent = b.price ? "$" + b.price.toLocaleString(undefined, {maximumFractionDigits: 2}) : "—";
+  $("btcmeta").textContent = `age ${b.age_s == null ? "∞" : b.age_s.toFixed(1) + "s"} · σ ${(b.sigma * 100).toFixed(0)}% · ${b.connected ? "live" : "disconnected"} · ${b.reconnects} reconnects`;
+  const p = s.pnl, eq = p.balance + p.exposure + p.unrealized;
+  $("equity").textContent = usd(eq);
+  $("balmeta").textContent = `cash ${usd(p.balance)} · start ${usd(p.starting_balance)}`;
+  $("realized").textContent = usd(p.realized, true);
+  $("unreal").textContent = `unrealized ${usd(p.unrealized, true)}`;
+  $("daily").textContent = usd(p.daily, true);
+  $("dailymeta").textContent = `limit −$${s.risk.limits.daily_loss_limit_usd}`;
+  $("exposure").textContent = usd(p.exposure);
+  $("expmeta").textContent = `max ${usd(s.risk.limits.max_total_exposure_usd)} · ${usd(s.risk.limits.max_position_usd)}/trade`;
+  const pm = s.polymarket;
+  $("mktmeta").innerHTML = `· ${pm.markets} scanned${pm.last_scan_age_s != null ? ` · scan ${Math.round(pm.last_scan_age_s)}s ago` : ""}${pm.scan_error ? ` · <span class="err">${esc(pm.scan_error)}</span>` : ""}`;
+  chart(s.equity);
+
+  const minEdge = s.min_edge ?? 0.03;
+  table($("markets"), [
+    ["Market", r => esc(r.question || r.slug), "q"], ["Type", r => esc(r.kind)], ["Strike", strike],
+    ["Expires in", r => dur(r.tau_s)], ["Fair YES", r => cents(r.fair_yes)],
+    ["YES bid/ask", r => `${cents(r.yes_bid)} / ${cents(r.yes_ask)}`], ["NO bid/ask", r => `${cents(r.no_bid)} / ${cents(r.no_ask)}`],
+    ["Edge YES", r => edge(r.edge_yes)], ["Edge NO", r => edge(r.edge_no)], ["Note", r => esc(r.note), "sec"],
+  ], s.markets, "No markets scanned yet.", r => (r.edge_yes >= minEdge || r.edge_no >= minEdge) ? "hl" : "");
+
+  table($("positions"), [
+    ["Market", r => esc(r.slug), "q"], ["Side", r => r.side], ["Shares", r => num(r.shares, 1)],
+    ["Avg px", r => cents(r.avg_price)], ["Fees", r => usd(r.fees)], ["Cost", r => usd(r.shares * r.avg_price + r.fees)],
+    ["Fair@entry", r => cents(r.fair_at_entry)], ["Mark", r => usd(r.mark_value)], ["Unreal.", r => usd(r.unrealized, true)],
+    ["Expires", r => dur(r.end_ts - s.now)],
+  ], s.positions, "No open positions.");
+
+  table($("signals"), [
+    ["Time", r => time(r.ts)], ["Market", r => esc(r.slug), "q"], ["Side", r => r.side],
+    ["Fair", r => cents(r.fair)], ["Ask", r => cents(r.ask)], ["Fee/sh", r => cents(r.fee_per_share)],
+    ["Edge", r => edge(r.edge)], ["Result", r => esc(r.reason), "sec"],
+  ], s.signals, "No signals yet.");
+
+  table($("closed"), [
+    ["Closed", r => time(r.closed_ts)], ["Market", r => esc(r.slug), "q"], ["Side", r => r.side],
+    ["Cost", r => usd(r.shares * r.avg_price + r.fees)], ["Payout", r => usd(r.payout)], ["P&L", r => usd(r.pnl, true)],
+  ], s.closed_positions, "Nothing settled yet.");
+
+  table($("events"), [
+    ["Time", r => time(r.ts)], ["Level", r => esc(r.level)], ["Kind", r => esc(r.kind)], ["Message", r => esc(r.message), "q"],
+  ], s.events, "No events.");
+}
+
+async function poll() {
+  try {
+    const r = await fetch("api/state", {credentials: "same-origin", cache: "no-store"});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    render(await r.json());
+  } catch (e) {
+    $("status").innerHTML = `<span class="dot" style="background:var(--critical)"></span><span>dashboard offline (${esc(e.message)})</span>`;
+  }
+  setTimeout(poll, 1500);
+}
+
+$("kill").addEventListener("click", async () => {
+  if (!confirm("Engage the kill switch? All new trading stops immediately. Release it from the server with: python -m polybot.kill --off")) return;
+  await fetch("api/kill", {method: "POST", credentials: "same-origin"});
+});
+
+poll();
+</script>
+</body>
+</html>
