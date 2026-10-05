@@ -1,0 +1,60 @@
+# polybot configuration. Secrets do NOT go here; put them in .env.
+
+execution:
+  mode: paper                 # paper only. Live trading is not implemented in this build.
+  live_trading_enabled: false
+  paper_extra_slippage: 0.0   # extra $/share added to simulated fills (stress test with 0.005)
+  settle_poll_interval_s: 30
+
+binance:
+  ws_url: wss://data-stream.binance.vision/stream   # market-data-only endpoint
+  rest_url: https://data-api.binance.vision          # public market-data REST mirror
+  symbol: BTCUSDT
+  reconnect_min_s: 1
+  reconnect_max_s: 60
+
+polymarket:
+  gamma_url: https://gamma-api.polymarket.com
+  clob_url: https://clob.polymarket.com
+  max_markets: 50
+  scan_interval_s: 30
+  book_poll_interval_s: 1.0
+  series_slugs: [btc-up-or-down-5m, btc-up-or-down-15m]
+  max_events_per_series: 4
+  tag_slugs: [bitcoin]
+  max_horizon_hours: 48
+  min_seconds_to_expiry: 20     # oracle/basis risk dominates in the last seconds
+  default_fee_rate: 0.07        # used only if a market doesn't publish feeSchedule
+  default_fee_exponent: 1
+
+model:
+  vol_floor: 0.20
+  vol_cap: 2.50
+  kline_vol_window_min: 120
+  short_vol_window_s: 900
+  short_vol_weight: 0.5
+  basis_uncertainty_bps: 5      # Binance vs Chainlink / resolution-source basis (1 sd)
+
+signals:
+  min_edge: 0.03                # probability points AFTER taker fee and spread
+  min_price: 0.03
+  max_price: 0.97
+  signal_log_cooldown_s: 30
+
+risk:
+  starting_balance_usd: 1000
+  max_position_usd: 25
+  max_total_exposure_usd: 200
+  max_positions_per_market: 1
+  daily_loss_limit_usd: 50
+  max_feed_age_s: 3
+  kill_switch_file: data/KILL
+
+dashboard:
+  enabled: true
+  host: 127.0.0.1               # use 0.0.0.0 only behind HTTPS (see README)
+  port: 8080
+  username: admin
+
+storage:
+  sqlite_path: data/polybot.sqlite3

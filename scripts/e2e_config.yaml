@@ -1,0 +1,12 @@
+# Points the bot at scripts/fake_exchange.py for an offline end-to-end run.
+execution: {mode: paper, settle_poll_interval_s: 3}
+binance: {ws_url: "ws://127.0.0.1:9001/stream", rest_url: "http://127.0.0.1:9002", reconnect_min_s: 0.5, reconnect_max_s: 4}
+polymarket:
+  gamma_url: "http://127.0.0.1:9002"
+  clob_url: "http://127.0.0.1:9002"
+  scan_interval_s: 5
+  series_slugs: [btc-up-or-down-5m]
+  min_seconds_to_expiry: 10
+risk: {kill_switch_file: data/e2e/KILL}
+dashboard: {enabled: true, port: 8099}
+storage: {sqlite_path: data/e2e/polybot.sqlite3}
